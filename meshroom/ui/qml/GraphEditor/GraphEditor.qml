@@ -60,6 +60,21 @@ Item {
         delegate.forceActiveFocus()
     }
 
+    /// Duplicate a node and optionnally all the following ones
+    function duplicateNode(node, duplicateFollowingNodes) {
+        var nodes = uigraph.duplicateNode(node, duplicateFollowingNodes)
+        var delegates = []
+        var from = nodeRepeater.count - nodes.length
+        var to = nodeRepeater.count - 1
+        for(var i=from; i <= to; ++i)
+        {
+            delegates.push(nodeRepeater.itemAt(i))
+        }
+        doAutoLayout(from, to, x, y + (root.nodeHeight + root.gridSpacing))
+        selectNode(delegates[0])
+        return delegates
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
@@ -221,6 +236,47 @@ Item {
                 }
             }
 
+            Menu {
+                id: nodeMenu
+                property var currentNode
+                property bool canComputeNode: currentNode ? uigraph.graph.canCompute(currentNode) : false
+
+                MenuItem {
+                    text: "Compute"
+                    enabled: !root.readOnly && nodeMenu.canComputeNode
+                    onTriggered: uigraph.execute(node)
+                }
+                MenuItem {
+                    text: "Submit"
+                    enabled: !root.readOnly && nodeMenu.canComputeNode
+                    onTriggered: uigraph.submit(node)
+                }
+                MenuItem {
+                    text: "Open Folder"
+                    onTriggered: Qt.openUrlExternally(Filepath.stringToUrl(node.internalFolder))
+                }
+                MenuSeparator {}
+                MenuItem {
+                    text: "Duplicate"
+                    onTriggered: duplicate(false)
+                }
+                MenuItem {
+                    text: "Duplicate From Here"
+                    onTriggered: duplicate(true)
+                }
+                MenuSeparator {}
+                MenuItem {
+                    text: "Clear Data"
+                    enabled: !root.readOnly
+                    onTriggered: node.clearData()
+                }
+                MenuItem {
+                    text: "Delete Node"
+                    enabled: !root.readOnly
+                    onTriggered: uigraph.removeNode(node)
+                }
+            }
+
             // Nodes
             Repeater {
                 id: nodeRepeater
@@ -249,31 +305,17 @@ Item {
                             selectNode(delegates[0])
                         }
                         else
-                            selectNode(nodeDelegate)
-                    }
-
-                    function duplicate(duplicateFollowingNodes) {
-                        var nodes = uigraph.duplicateNode(node, duplicateFollowingNodes)
-                        var delegates = []
-                        var from = nodeRepeater.count - nodes.length
-                        var to = nodeRepeater.count - 1
-                        for(var i=from; i <= to; ++i)
                         {
-                            delegates.push(nodeRepeater.itemAt(i))
+                            selectNode(nodeDelegate)
                         }
-                        doAutoLayout(from, to, x, y + (root.nodeHeight + root.gridSpacing))
-                        return delegates
+                        if(mouse.button == Qt.RightButton)
+                        {
+                            nodeMenu.currentNode = node
+                            nodeMenu.popup()
+                        }
                     }
 
                     onDoubleClicked: root.nodeDoubleClicked(node)
-
-                    onComputeRequest: uigraph.execute(node)
-                    onSubmitRequest: uigraph.submit(node)
-                    onDuplicateRequest: {
-                        var delegate = duplicate(duplicateFollowingNodes)[0]
-                        selectNode(delegate)
-                    }
-                    onRemoveRequest: uigraph.removeNode(node)
 
                     Keys.onDeletePressed: uigraph.removeNode(node)
 
